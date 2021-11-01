@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,13 +11,25 @@ import (
 
 func main() {
 	fmt.Println("oldman is ready to Go!")
+	log.Printf("Usage:\n")
+	log.Printf("$ oldman\n")
+	log.Printf("$ oldman -key key/server.key -cert key/server.crt\n")
 
-	// HTTP2 server
-	srv := &http.Server{Addr: ":1204", Handler: http.HandlerFunc(http2Hello)}
-	fmt.Println("HTTP2 server is serving on https://x.x.x.x:1204")
-	go func() {
-		log.Fatal(srv.ListenAndServeTLS("key/server.crt", "key/server.key"))
-	}()
+	var keyPath string
+	var certPath string
+	flag.StringVar(&keyPath, "key", "", "path to key file")
+	flag.StringVar(&certPath, "cert", "", "path to cert file")
+	flag.Parse()
+
+	if keyPath != "" && certPath != "" {
+		log.Printf("Found key at %s, cert at %s, run both HTTP1.1 and HTTP2\n", keyPath, certPath)
+		// HTTP2 server
+		srv := &http.Server{Addr: ":1204", Handler: http.HandlerFunc(http2Hello)}
+		fmt.Println("HTTP2 server is serving on https://x.x.x.x:1204")
+		go func() {
+			log.Fatal(srv.ListenAndServeTLS(certPath, keyPath))
+		}()
+	}
 
 	// HTTP1.1 server
 	http.HandleFunc("/", http1Hello)
@@ -25,12 +38,12 @@ func main() {
 }
 
 func http1Hello(w http.ResponseWriter, r *http.Request) {
-	log.Printf("HTTP1 server: %s %s %s\n", r.RemoteAddr, r.Method, r.URL)
+	log.Printf("HTTP1 server is serving %s %s %s %s\n", r.Proto, r.RemoteAddr, r.Method, r.URL)
 	hello(w, r)
 }
 
 func http2Hello(w http.ResponseWriter, r *http.Request) {
-	log.Printf("HTTP2 server: %s %s %s\n", r.RemoteAddr, r.Method, r.URL)
+	log.Printf("HTTP2 server is serving %s %s %s %s\n", r.Proto, r.RemoteAddr, r.Method, r.URL)
 	hello(w, r)
 }
 
